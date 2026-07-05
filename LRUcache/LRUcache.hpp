@@ -66,7 +66,7 @@ class LRUcache{
                     other.cache=nullptr;
                     other.node=nullptr;
                 }
-
+            private:
                 void reset(){
                     if(valid()){
                         cache->uref_node(node);
@@ -74,13 +74,14 @@ class LRUcache{
                         node=nullptr;
                     }
                 }
-
+            public:
                 VAL& value(){
                     assert(valid());
                     return node->val;
                 }
-
+            private:
                 bool valid() const {return cache && node;}
+            public:
                 explicit operator bool() const {return valid();}
             private:
                 friend class LRUcache<KEY,VAL>;
@@ -94,7 +95,7 @@ class LRUcache{
                 Node* node;
         };
 
-        HandleCache get(KEY& key){
+        HandleCache get(const KEY& key){
             auto it=cache.find(key);
             if(it!=cache.end()){
                 return HandleCache(this, &(*it->second));
@@ -106,13 +107,16 @@ class LRUcache{
             static_assert(std::is_constructible_v<VAL,V&&>,"V 是用来构造 val的");
             auto it=cache.find(key);
             if(it!=cache.end()){
-                auto node_iter=it.second;
-                node_iter->value=std::forward<V>(val);
+                auto node_iter=it->second;
+                node_iter->val=std::forward<V>(val);
                 return HandleCache(this, &(*node_iter));
             }
             auto node_iter=not_use.emplace(not_use.end(), key, std::forward<V>(val));
             node_iter->list_pos=node_iter;
             size++;
+            //添加到unordered_map里面
+            cache[key]=node_iter;
+            
             evict_if_needed();
             return HandleCache(this, &(*node_iter));
         }
@@ -142,7 +146,7 @@ class LRUcache{
                     Node& node=*node_iter;
                     cache.erase(node.key);
 
-                    value_deleter(node.value);
+                    value_deleter(node.val);
                     not_use.erase(node_iter);
                     size--;
                 }
